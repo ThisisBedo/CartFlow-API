@@ -1,4 +1,5 @@
-require('dotenv').config({ path: './.env' });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const Category = require('../models/Category');
 const Product = require('../models/Product');
@@ -7,6 +8,10 @@ const Order = require('../models/Order');
 
 const seedData = async () => {
     try {
+        if (!process.env.MONGO_URI) {
+            throw new Error('MONGO_URI is missing. Add it to the project .env file before running the seed script.');
+        }
+
         await mongoose.connect(process.env.MONGO_URI);
         
         await Category.deleteMany();
