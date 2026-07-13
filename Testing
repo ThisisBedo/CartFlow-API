@@ -1,7 +1,117 @@
-GET  http://localhost:5000/api/products
-GET  http://localhost:5000/api/categories
-GET  http://localhost:5000/api/cart
-GET  http://localhost:5000/api/orders
-POST http://localhost:5000/api/cart
-PUT  http://localhost:5000/api/cart
-POST http://localhost:5000/api/orders
+# ==============================================================================
+# E-Commerce Backend API Test Collection
+# Recommended VS Code Extension: REST Client (by Huachao Mao)
+# ==============================================================================
+
+@baseUrl = http://localhost:5000
+@productId = 6a554878ccbf2d75664d144c
+@invalidProductId = invalid-id-format
+
+###
+# 1. Storefront: List All Products
+# Verify pagination (future), categories population, and isActive soft-delete filter.
+GET {{baseUrl}}/api/products
+
+###
+# 2. Storefront: Get Product By ID (Valid ID)
+GET {{baseUrl}}/api/products/{{productId}}
+
+###
+# 3. Validation: Get Product By ID (Malformed MongoID Path Parameter)
+# Expected Result: 400 Bad Request (Validation failed)
+GET {{baseUrl}}/api/products/{{invalidProductId}}
+
+###
+# 4. Storefront: List All Categories (Slugified)
+GET {{baseUrl}}/api/categories
+
+###
+# 5. Cart: View Cart
+GET {{baseUrl}}/api/cart
+
+###
+# 6. Cart: Add Item to Cart (Valid Payload)
+# Note: Quantity is optional and defaults to 1 if omitted.
+POST {{baseUrl}}/api/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 2
+}
+
+###
+# 7. Cart: Add Item to Cart (Validation Failure - Malformed ID & Negative Quantity)
+# Expected Result: 400 Bad Request
+POST {{baseUrl}}/api/cart
+Content-Type: application/json
+
+{
+  "productId": "{{invalidProductId}}",
+  "quantity": -5
+}
+
+###
+# 8. Cart: Add Item to Cart (Security Test - Client Price Injection Attempt)
+# Expected Result: 200 OK. The API MUST ignore the price parameter and pull price from DB model.
+POST {{baseUrl}}/api/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 1,
+  "price": 0.01
+}
+
+###
+# 9. Cart: Update Cart Item Quantity (Valid Payload)
+PUT {{baseUrl}}/api/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 3
+}
+
+###
+# 10. Cart: Update Cart Item Quantity (Validation Failure - Zero Quantity)
+# Expected Result: 400 Bad Request
+PUT {{baseUrl}}/api/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 0
+}
+
+###
+# 11. Cart: Remove Item from Cart (Valid ID)
+DELETE {{baseUrl}}/api/cart/{{productId}}
+
+###
+# 12. Cart: Remove Item from Cart (Validation Failure - Malformed ID)
+# Expected Result: 400 Bad Request
+DELETE {{baseUrl}}/api/cart/{{invalidProductId}}
+
+###
+# 13. Checkout: Place Order (Standard Checkout Flow)
+# Creates an order from cart, snapshots prices, reduces stock, and clears the cart.
+POST {{baseUrl}}/api/orders
+
+###
+# 14. Checkout: Place Order (Edge Case - Empty Cart Validation)
+# Expected Result: 400 Bad Request (Your cart is completely empty)
+POST {{baseUrl}}/api/orders
+
+###
+# 15. Checkout: Place Order (Edge Case - Concurrency & Insufficient Stock Check)
+# Steps to verify:
+# A. Add 5 items of product (stock limit of Laptop is 2).
+# B. Run GET /api/products to verify stock.
+# C. POST /api/orders.
+# Expected Result: 400 Bad Request (Insufficient stock or product unavailable for: Laptop)
+POST {{baseUrl}}/api/orders
+
+###
+# 16. Orders: Retrieve Order History
+GET {{baseUrl}}/api/orders
